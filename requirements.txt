@@ -1,0 +1,4 @@
+minecraft-launcher-lib>=8.0,<9.0
+pyinstaller>=6.0
+Pillow>=10.0
+pygame>=2.5
