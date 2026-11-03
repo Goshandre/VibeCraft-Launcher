@@ -1,3 +1,1 @@
-@echo off
-py -3 vibecraft.py
-if errorlevel 1 pause
+@echo off\ncd /d "%~dp0"\npy -3.12w vibecraft.py\nif errorlevel 1 py -3.12 vibecraft.py\nif errorlevel 1 pause\n
