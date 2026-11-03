@@ -1,4 +1,4 @@
-# VibeCraft Launcher 1.6.1 Beta — source
+# VibeCraft Launcher 2.2.0 Beta — source
 
 Неофициальный лаунчер Minecraft Java Edition. Не связан с Mojang/Microsoft.
 
