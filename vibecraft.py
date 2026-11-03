@@ -5,7 +5,7 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image
 
 APP_NAME = "VibeCraft Launcher"
-APP_VERSION = "2.1 Fix Beta"
+APP_VERSION = "2.2 Free Cosmetics Beta"
 GITHUB_REPO = "Goshandre/VibeCraft-Launcher"
 MC_DIR = Path.home() / "VibeCraft" / ".minecraft"
 CONFIG = Path.home() / "VibeCraft" / "config.json"
@@ -118,9 +118,10 @@ class VibeCraft:
         tk.Button(right, text="Выбрать PNG", command=self.choose_skin, bg="#30335c",
                   fg=WHITE, relief="flat", pady=8).pack(fill="x", padx=20)
         tk.Button(right, text="Выбрать плащ VibeCraft", command=self.choose_cape, bg="#493078", fg=WHITE, relief="flat", pady=8).pack(fill="x", padx=20, pady=(6, 0))
+        tk.Button(right, text="✨ Эффекты и частицы", command=self.cosmetics_effects_dialog, bg="#30335c", fg=WHITE, relief="flat", pady=8).pack(fill="x", padx=20, pady=(6, 0))
         self.cosmetic_status = tk.Label(right, text="Косметика сохраняется локально", font=("Segoe UI", 8), fg="#d4c4ff", bg="#17182f", justify="left", wraplength=205)
         self.cosmetic_status.pack(anchor="w", padx=20, pady=(8, 0))
-        tk.Label(right, text="PNG пока сохраняются локально. Для отображения в Minecraft нужна интеграция с игровым модом.",
+        tk.Label(right, text="Скины и плащи бесплатны. PNG сохраняются локально; для показа в игре нужен совместимый мод.",
                  font=("Segoe UI", 9), fg=MUTED, bg="#17182f", justify="left").pack(
             anchor="w", padx=20, pady=(10, 22))
         tk.Label(right, text="АККАУНТ", font=("Segoe UI", 12, "bold"), fg=WHITE,
@@ -202,15 +203,14 @@ class VibeCraft:
                 self.root.after(0, lambda: messagebox.showinfo("Готово", f"Файлы Minecraft {version} загружены."))
             except Exception as e:
                 self.set_status(f"Ошибка установки: {e}")
-                self.root.after(0, lambda: messagebox.showerror("Ошибка установки", str(e)))
+                error_text = str(e)
+                self.root.after(0, lambda msg=error_text: messagebox.showerror("Ошибка установки", msg))
         threading.Thread(target=worker, daemon=True).start()
 
     def _choose_texture(self, kind, title):
         path = filedialog.askopenfilename(title=title, filetypes=[("PNG images", "*.png")])
         if not path: return
         try:
-            if kind == "cape" and not can_use_custom_cape(self.current_user):
-                raise CosmeticError("Свой плащ открывается с ранга Профи (25 часов). До этого действует стартовый плащ VibeCraft.")
             stored = import_texture(path, MC_DIR, kind)
             key = {"skin":"skin_path", "cape":"cape_path", "elytra":"elytra_path"}[kind]
             self.config[key] = str(stored); self.save_config()
@@ -223,6 +223,39 @@ class VibeCraft:
     def choose_skin(self): self._choose_texture("skin", "Выбери скин Minecraft PNG")
     def choose_cape(self): self._choose_texture("cape", "Выбери плащ Minecraft PNG 64×32")
     def choose_elytra(self): self._choose_texture("elytra", "Выбери текстуру элитр PNG 64×32")
+
+    def cosmetics_effects_dialog(self):
+        """Save free cosmetic preferences; rendering requires a compatible game mod."""
+        win = tk.Toplevel(self.root)
+        win.title("VibeCraft — бесплатная косметика")
+        win.geometry("430x430")
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        tk.Label(win, text="БЕСПЛАТНЫЕ ЭФФЕКТЫ", font=("Segoe UI", 15, "bold"), fg=WHITE, bg=BG).pack(pady=(18, 6))
+        tk.Label(win, text="Настройки сохраняются в профиле VibeCraft.\nДля отображения в игре потребуется совместимый мод.",
+                 font=("Segoe UI", 9), fg=MUTED, bg=BG, justify="center").pack(pady=(0, 14))
+        choices = [
+            ("aura_enabled", "Аура вокруг персонажа"),
+            ("footstep_particles", "Частицы при ходьбе"),
+            ("jump_particles", "Частицы при прыжке"),
+            ("join_effect", "Эффект появления"),
+            ("color_effect", "Цветные эффекты"),
+            ("extra_animations", "Дополнительные анимации"),
+        ]
+        vars_ = {}
+        for key, title in choices:
+            var = tk.BooleanVar(value=bool(self.config.get("cosmetics", {}).get(key, False)))
+            vars_[key] = var
+            tk.Checkbutton(win, text=title, variable=var, bg=BG, fg=WHITE, selectcolor=PANEL,
+                           activebackground=BG, activeforeground=WHITE, font=("Segoe UI", 10)).pack(anchor="w", padx=48, pady=5)
+        def save():
+            self.config.setdefault("cosmetics", {}).update({key: var.get() for key, var in vars_.items()})
+            self.save_config()
+            self.cosmetic_status.config(text="Скин/плащ и настройки эффектов сохранены локально.\nИгровой мод пока не подключён.")
+            self.status.set("Настройки бесплатной косметики сохранены.")
+            messagebox.showinfo("VibeCraft", "Настройки сохранены. В этой Beta они ещё не отображаются в Minecraft: для этого нужен отдельный совместимый клиентский мод.", parent=win)
+            win.destroy()
+        tk.Button(win, text="СОХРАНИТЬ", command=save, bg=PURPLE, fg=WHITE, relief="flat", pady=9).pack(fill="x", padx=38, pady=20)
 
     def account_dialog(self):
         win = tk.Toplevel(self.root); win.title("Аккаунт VibeCraft"); win.geometry("360x330"); win.configure(bg=BG); win.resizable(False, False)
@@ -325,7 +358,8 @@ class VibeCraft:
                 self.root.after(0, self.root.deiconify)
             except Exception as e:
                 self.set_status("Не удалось запустить игру: "+str(e))
-                self.root.after(0,lambda:messagebox.showerror("Ошибка запуска",str(e)))
+                error_text = str(e)
+                self.root.after(0,lambda msg=error_text:messagebox.showerror("Ошибка запуска",msg))
         threading.Thread(target=worker,daemon=True).start()
 
     def install_loader(self, loader):
@@ -343,7 +377,8 @@ class VibeCraft:
                 self.root.after(0,lambda:messagebox.showinfo("Готово",f"{loader} установлен. Выбери созданный профиль загрузчика в списке версий."))
             except Exception as e:
                 self.set_status(f"Ошибка установки {loader}: {e}")
-                self.root.after(0,lambda:messagebox.showerror(f"Установка {loader}",str(e)))
+                error_text = str(e)
+                self.root.after(0,lambda msg=error_text:messagebox.showerror(f"Установка {loader}",msg))
         self.status.set(f"Устанавливаю {loader}…")
         threading.Thread(target=worker,daemon=True).start()
 

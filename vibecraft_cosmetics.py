@@ -4,7 +4,8 @@ from PIL import Image
 import shutil
 class CosmeticError(ValueError): pass
 def can_use_custom_cape(user):
-    return bool(user and (user.get("role") in {"moderator", "owner"} or float(user.get("hours", 0)) >= 25))
+    # VibeCraft 2.2: custom capes are free for every local profile.
+    return True
 def import_texture(source, minecraft_dir, kind):
     source=Path(source)
     if kind not in {"skin","cape","elytra"}: raise CosmeticError("Неизвестный тип косметики.")
