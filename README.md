@@ -1,49 +1,36 @@
-# VibeCraft Launcher — Beta 1.5.49
+# VibeCraft Launcher 1.6.1 Beta — source
 
-A purple/blue Windows desktop prototype for Minecraft: Java Edition.
+Неофициальный лаунчер Minecraft Java Edition. Не связан с Mojang/Microsoft.
 
-## Music menu\n- Includes a playlist UI and cover art based on the user's screenshots.\n- Track titles are catalog entries only; no copyrighted audio is bundled. Select local audio files you own or are licensed to use.\n- Playback uses pygame when available.\n\n## Branding\n- `vibecraft_icon.png` is the launcher artwork.\n- `vibecraft_icon.ico` is used for the Windows EXE build.\n\n## What works in this prototype
-- Downloads the official Minecraft Java version manifest and lists available versions.
-- Downloads the selected version's game files using `minecraft-launcher-lib`.
-- Saves a local path to a user-selected PNG skin.
-- Checks GitHub Releases for a newer launcher version after you configure `GITHUB_REPO`.
-- Has a purple/blue UI and Windows `.exe` build scripts.
+## Запуск
+1. Windows 10/11, Python 3.11–3.13 (64-bit), установленный Java не обязателен для версий, для которых библиотека умеет управлять runtime.
+2. Запусти `install_dependencies.bat`.
+3. Запусти `run.bat`.
 
-## Not finished yet (important)
-- Microsoft/Xbox/Minecraft authentication is **not implemented**.
-- The Play button is intentionally blocked until legitimate account authentication and ownership checks are implemented.
-- A saved PNG path does not upload or apply a skin to an online Minecraft profile.
-- GitHub updater only opens the release page; it does not replace the running EXE automatically.
-- Windows 8.1 compatibility is not guaranteed. Modern Python versions and current Minecraft versions may not support Windows 8.1.
+## Реализовано в этой версии
+- Получение официального списка Minecraft Java и установка vanilla версии через `minecraft-launcher-lib`.
+- Запуск установленной версии с локальным офлайн-именем (offline UUID). Работает только там, где сервер явно допускает offline-mode; не обходит Microsoft/Xbox-аутентификацию и не открывает online-mode=true серверы.
+- Подсчёт времени процесса Minecraft и повышение ранга: 🪵 Новичок (0 ч), ⚔️ Игрок (5 ч), 💎 Профи (25 ч), 🔥 Задрот (100 ч).
+- Локальные VibeCraft-профили, пароли хранятся как PBKDF2-HMAC-SHA256 с уникальной солью.
+- Особые роли: 🛡️ Помощник (Модератор) и 👑⭐ Владелец VibeCraft. Первый владелец создаётся через одноразовую первоначальную настройку с `VIBECRAFT_OWNER_KEY`. Модератора может назначать только владелец. Владелец не может быть изменён через обычную форму ролей. Ранга «Администратор» нет.
+- Кнопки установки Fabric и Forge через соответствующие API `minecraft-launcher-lib` (доступность зависит от версии библиотеки и совместимости выбранной версии Minecraft).
+- Проверка PNG-скина (64×64 или legacy 64×32) и копирование в `.minecraft/vibecraft_skins`.
+- Музыкальное окно, локальные аудиофайлы, открытие папки игры, проверка релиза GitHub.
 
-This is an independent community project and is not affiliated with Mojang or Microsoft. It does not bypass Minecraft ownership checks.
+## Первичная настройка владельца (PowerShell)
+```powershell
+$env:VIBECRAFT_OWNER_KEY = "СЮДА_ДЛИННЫЙ_СЛУЧАЙНЫЙ_СЕКРЕТ"
+python vibecraft.py
+```
+Зарегистрируй первый аккаунт и введи ключ. После создания первого пользователя переменная больше не нужна. Не публикуй ключ. Аккаунты и роли находятся в локальной SQLite-базе на этом ПК.
 
-## Requirements
-- Windows 10/11 recommended
-- Python 3.11 or newer
-- Internet connection for downloading game files
+## Что ещё НЕ реализовано / ограничения
+- **Microsoft OAuth и проверка лицензии** не подключены. Кнопка Microsoft сообщает об этом; пароль Microsoft лаунчер не запрашивает. Нужна регистрация public OAuth application, безопасный device-code flow, Xbox Live/XSTS и Minecraft Services entitlement/profile flow. Нельзя считать офлайн-профиль лицензией.
+- **Forge/Fabric**: вызовы установки добавлены, но в данной среде не было доступа к сети и не удалось проверить реальные скачивания. Совместимость зависит от конкретной версии и API библиотеки.
+- **Скины**: PNG проверяется и копируется локально. Vanilla Minecraft не применяет этот файл автоматически; нужен совместимый клиентский skin-мод/плагин. Другие игроки увидят скин только если серверная система это поддерживает.
+- **Общее управление аккаунтами, жалобы, предупреждения, временные блокировки и чат-модерация** не реализованы как интернет-сервис. Локальная SQLite-база не защищает роли от владельца самого компьютера и не синхронизируется между ПК. Для этого нужен отдельный backend с TLS, хешированием паролей, rate limits, аудитом и API.
+- **Автоматическое время** засчитывается, пока запущен дочерний процесс игры. Если лаунчер принудительно завершить/выключить компьютер, последний незавершённый интервал может не сохраниться.
+- Вызовы Minecraft, Fabric/Forge и Microsoft не прошли сетевое интеграционное тестирование в этой среде (нет доступа к PyPI/серверам). Синтаксис и локальные проверки аккаунтов проверены.
 
-## Run from source
-1. Extract this ZIP to a folder.
-2. Install Python from the official Python website and enable **Add Python to PATH**.
-3. Double-click `install_dependencies.bat`.
-4. Double-click `run.bat`.
-
-## Build an EXE
-Double-click `build_exe.bat`. If successful, the EXE will be in `dist\\VibeCraftLauncher.exe`.
-Building an EXE is not the same as creating a signed installer.
-
-## Publish on GitHub (beginner-friendly)
-1. Sign in at https://github.com.
-2. Click **+** → **New repository**.
-3. Repository name: `VibeCraft-Launcher`. Choose Public or Private, then **Create repository**.
-4. On the new repository page choose **Add file** → **Upload files**.
-5. Upload the files inside this project folder (not the ZIP itself), then click **Commit changes**.
-6. In `vibecraft.py`, change `GITHUB_REPO = "YOUR_GITHUB_NAME/VibeCraft-Launcher"` to your GitHub username/repository, then upload/commit that edit.
-7. For updates, open **Releases** → **Create a new release**, use a tag like `v1.5.49-beta`, add release notes, and attach a built EXE or installer.
-8. Keep secrets, passwords, OAuth client secrets, and access tokens out of source code and GitHub.
-
-Official GitHub help: https://docs.github.com/en/repositories/creating-and-managing-repositories/quickstart-for-repositories
-
-## Next development stage
-Implement Microsoft Device Code OAuth + Xbox Live/XSTS + Minecraft Services entitlement/profile validation, then use the authenticated session to launch the game. This must be tested with a Microsoft account that owns Java Edition. Do not ask users for their Microsoft passwords inside this app.
+## Безопасность
+Не отправляй никому пароли, OAuth-токены или `VIBECRAFT_OWNER_KEY`. Офлайн-режим допустим только на собственном клиенте и серверах, которые разрешают offline-mode; правила доступа задаёт сервер.

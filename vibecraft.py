@@ -1,14 +1,16 @@
-import json, os, threading, webbrowser, urllib.request, urllib.error
+import json, os, threading, webbrowser, urllib.request, urllib.error, subprocess, sys, uuid, time, re
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image
 
 APP_NAME = "VibeCraft Launcher"
-APP_VERSION = "1.5.49 Beta"
-GITHUB_REPO = "YOUR_GITHUB_NAME/VibeCraft-Launcher"  # Replace after creating your repo
+APP_VERSION = "1.6.1 Beta"
+GITHUB_REPO = "Goshandre/VibeCraft-Launcher"
 MC_DIR = Path.home() / "VibeCraft" / ".minecraft"
 CONFIG = Path.home() / "VibeCraft" / "config.json"
+
+from vibecraft_accounts import AccountStore, AccountError
 
 try:
     import minecraft_launcher_lib as mcl
@@ -30,9 +32,13 @@ class VibeCraft:
         self.root.minsize(760, 520)
         self.root.configure(bg=BG)
         self.config = self.load_config()
+        self.accounts = AccountStore()
+        self.current_user = None
         self.versions = []
         self.music_window = None
         self.music_images = []
+        self.game_process = None
+        self.session_user = None
         self.build_ui()
         self.check_updates()
         self.load_versions()
@@ -84,7 +90,10 @@ class VibeCraft:
         tk.Button(left, text="⬇  УСТАНОВИТЬ ВЕРСИЮ", command=self.install_version,
                   bg=BLUE, fg="#101226", activebackground="#70c0ff",
                   font=("Segoe UI", 11, "bold"), relief="flat", pady=12).pack(fill="x", pady=4)
-        tk.Button(left, text="▶  ИГРАТЬ", command=self.launch_notice,
+        loader_row=tk.Frame(left,bg=PANEL); loader_row.pack(fill="x",pady=(2,4))
+        tk.Button(loader_row,text="Установить Fabric",command=lambda:self.install_loader("Fabric"),bg="#30335c",fg=WHITE,relief="flat",pady=7).pack(side="left",fill="x",expand=True,padx=(0,4))
+        tk.Button(loader_row,text="Установить Forge",command=lambda:self.install_loader("Forge"),bg="#30335c",fg=WHITE,relief="flat",pady=7).pack(side="left",fill="x",expand=True,padx=(4,0))
+        tk.Button(left, text="▶  ИГРАТЬ", command=self.launch_game,
                   bg=PURPLE, fg="white", activebackground="#b38aff",
                   font=("Segoe UI", 12, "bold"), relief="flat", pady=13).pack(fill="x", pady=4)
         tk.Button(left, text="Папка игры", command=self.open_game_folder,
@@ -102,14 +111,18 @@ class VibeCraft:
         self.skin_label.pack(anchor="w", padx=20, pady=(5, 10))
         tk.Button(right, text="Выбрать PNG", command=self.choose_skin, bg="#30335c",
                   fg=WHITE, relief="flat", pady=8).pack(fill="x", padx=20)
-        tk.Label(right, text="Скин пока сохраняется локально.\nДля применения в игре нужна\nавторизация и загрузка в профиль.",
+        tk.Label(right, text="PNG сохраняется локально. Для отображения скина в игре нужен совместимый skin-мод и поддержка сервера.",
                  font=("Segoe UI", 9), fg=MUTED, bg="#17182f", justify="left").pack(
             anchor="w", padx=20, pady=(10, 22))
         tk.Label(right, text="АККАУНТ", font=("Segoe UI", 12, "bold"), fg=WHITE,
                  bg="#17182f").pack(anchor="w", padx=20, pady=(0, 8))
+        self.account_label = tk.Label(right, text="Не выполнен вход", font=("Segoe UI", 9), fg=MUTED, bg="#17182f", wraplength=205, justify="left")
+        self.account_label.pack(anchor="w", padx=20, pady=(0, 6))
+        tk.Button(right, text="Войти / Регистрация VibeCraft", command=self.account_dialog, bg="#30335c", fg=WHITE, relief="flat", pady=8).pack(fill="x", padx=20, pady=(0, 8))
         tk.Button(right, text="Войти через Microsoft", command=self.auth_notice,
                   bg="#30335c", fg=WHITE, relief="flat", pady=8).pack(fill="x", padx=20)
-        tk.Label(right, text="Нужен аккаунт с правом\nиграть в Java Edition.",
+        tk.Button(right, text="Управление ролями (владелец)", command=self.moderation_dialog, bg="#30335c", fg=WHITE, relief="flat", pady=8).pack(fill="x", padx=20, pady=(8,0))
+        tk.Label(right, text="Офлайн-профиль работает только на серверах, разрешающих offline-mode. Microsoft-вход требует настройки OAuth.",
                  font=("Segoe UI", 9), fg=MUTED, bg="#17182f", justify="left").pack(
             anchor="w", padx=20, pady=(8, 0))
 
@@ -181,8 +194,42 @@ class VibeCraft:
         if path:
             self.config["skin_path"] = path
             self.save_config()
+            try:
+                im=Image.open(path)
+                if im.format != "PNG" or im.size not in ((64,64),(64,32)): raise ValueError("Нужен PNG размером 64×64 или 64×32.")
+            except Exception as e:
+                self.config["skin_path"]=""; self.save_config(); messagebox.showerror("Неверный скин",str(e)); return
             self.skin_label.config(text=Path(path).name)
-            self.status.set("Путь к PNG-скину сохранён локально.")
+            skins=MC_DIR / "vibecraft_skins"; skins.mkdir(parents=True,exist_ok=True)
+            import shutil; shutil.copy2(path, skins / Path(path).name)
+            self.status.set("PNG проверен и скопирован в .minecraft/vibecraft_skins. Для применения нужен skin-мод.")
+
+    def account_dialog(self):
+        win = tk.Toplevel(self.root); win.title("Аккаунт VibeCraft"); win.geometry("360x330"); win.configure(bg=BG); win.resizable(False, False)
+        tk.Label(win, text="ВХОД / РЕГИСТРАЦИЯ", fg=WHITE, bg=BG, font=("Segoe UI", 14, "bold")).pack(pady=14)
+        fields = {}
+        for label, key, secret in (("Никнейм", "username", False), ("Пароль", "password", True), ("Ключ владельца (только при первой настройке)", "bootstrap", True)):
+            tk.Label(win, text=label, fg=MUTED, bg=BG).pack(anchor="w", padx=24)
+            ent=tk.Entry(win, show="•" if secret else "", width=38); ent.pack(padx=24, pady=(2,8)); fields[key]=ent
+        def register():
+            try:
+                user=self.accounts.register(fields['username'].get(), fields['password'].get(), fields['bootstrap'].get() or None)
+                self.current_user=user; self.refresh_account(); messagebox.showinfo("VibeCraft", f"Аккаунт создан: {user['rank']}", parent=win); win.destroy()
+            except AccountError as e: messagebox.showerror("Не удалось зарегистрироваться", str(e), parent=win)
+        def login():
+            try:
+                self.current_user=self.accounts.authenticate(fields['username'].get(), fields['password'].get())
+                self.refresh_account(); win.destroy()
+            except AccountError as e: messagebox.showerror("Ошибка входа", str(e), parent=win)
+        bar=tk.Frame(win,bg=BG); bar.pack(pady=10)
+        tk.Button(bar,text="Войти",command=login,bg=PURPLE,fg=WHITE,relief="flat",padx=18,pady=8).pack(side="left",padx=5)
+        tk.Button(bar,text="Регистрация",command=register,bg=BLUE,fg=BG,relief="flat",padx=18,pady=8).pack(side="left",padx=5)
+        tk.Label(win,text="Локальный профиль этого компьютера. Не вводи здесь пароль Microsoft.",fg=MUTED,bg=BG,wraplength=310).pack(padx=18,pady=5)
+
+    def refresh_account(self):
+        if self.current_user:
+            u=self.accounts.get_user(self.current_user['username']); self.current_user=u
+            self.account_label.config(text=f"{u['username']}\n{u['rank']}\nИгровое время: {u['hours']:.1f} ч")
 
     def open_game_folder(self):
         MC_DIR.mkdir(parents=True, exist_ok=True)
@@ -193,14 +240,77 @@ class VibeCraft:
         except Exception as e:
             messagebox.showerror("Ошибка", str(e))
 
-    def launch_notice(self):
-        messagebox.showinfo("Запуск игры",
-            "Установка файлов доступна. Запуск игры появится после настройки безопасной авторизации Microsoft/Xbox и проверки владения Minecraft Java Edition. "
-            "Лаунчер не будет обходить проверку лицензии или использовать фиктивный офлайн-аккаунт.")
+    def launch_game(self):
+        if mcl is None:
+            messagebox.showerror("Нет зависимости", "Установи зависимости через install_dependencies.bat."); return
+        if self.current_user is None:
+            messagebox.showwarning("Нужен профиль", "Сначала войди или зарегистрируй локальный профиль VibeCraft."); self.account_dialog(); return
+        version=self.version_var.get().strip()
+        if not version or version.startswith("Загрузка"):
+            messagebox.showwarning("Версия", "Сначала выбери версию Minecraft."); return
+        if self.game_process and self.game_process.poll() is None:
+            messagebox.showinfo("Minecraft", "Игра уже запущена."); return
+        user=self.current_user['username']
+        if not re.fullmatch(r"[A-Za-z0-9_]{3,16}", user):
+            messagebox.showerror("Никнейм", "Для Minecraft нужен ник из 3–16 латинских букв, цифр или _. "); return
+        self.status.set("Подготавливаю запуск Minecraft (офлайн-профиль)…")
+        def worker():
+            try:
+                MC_DIR.mkdir(parents=True,exist_ok=True)
+                options={"username":user,"uuid":uuid.uuid3(uuid.NAMESPACE_DNS,"OfflinePlayer:"+user).hex,"token":""}
+                command=mcl.command.get_minecraft_command(version,str(MC_DIR),options=options)
+                self.game_process=subprocess.Popen(command,cwd=str(MC_DIR))
+                self.set_status("Minecraft запущен. Игровое время будет учитываться до закрытия игры.")
+                started=time.monotonic()
+                while self.game_process.poll() is None: time.sleep(5)
+                elapsed=max(0,int(time.monotonic()-started))
+                self.accounts.add_playtime(user,elapsed)
+                self.root.after(0,self.refresh_account)
+                self.set_status(f"Minecraft закрыт. Учтено игрового времени: {elapsed//60} мин.")
+            except Exception as e:
+                self.set_status("Не удалось запустить игру: "+str(e))
+                self.root.after(0,lambda:messagebox.showerror("Ошибка запуска",str(e)))
+        threading.Thread(target=worker,daemon=True).start()
+
+    def install_loader(self, loader):
+        if mcl is None: messagebox.showerror("Зависимость", "Установи зависимости."); return
+        version=self.version_var.get().strip()
+        def worker():
+            try:
+                if loader=="Fabric":
+                    if not hasattr(mcl,"fabric"): raise RuntimeError("Эта версия minecraft-launcher-lib не содержит Fabric API.")
+                    mcl.fabric.install_fabric(version,str(MC_DIR))
+                elif loader=="Forge":
+                    if not hasattr(mcl,"forge"): raise RuntimeError("Эта версия minecraft-launcher-lib не содержит Forge API.")
+                    mcl.forge.install_forge_version(version,str(MC_DIR))
+                self.set_status(f"{loader} для Minecraft {version} установлен.")
+                self.root.after(0,lambda:messagebox.showinfo("Готово",f"{loader} установлен. Выбери созданный профиль загрузчика в списке версий."))
+            except Exception as e:
+                self.set_status(f"Ошибка установки {loader}: {e}")
+                self.root.after(0,lambda:messagebox.showerror(f"Установка {loader}",str(e)))
+        self.status.set(f"Устанавливаю {loader}…")
+        threading.Thread(target=worker,daemon=True).start()
+
+    def moderation_dialog(self):
+        if not self.current_user:
+            messagebox.showwarning("VibeCraft", "Сначала войди в локальный аккаунт."); return
+        if self.current_user.get("role")!="owner":
+            messagebox.showwarning("Нет доступа", "Выдавать и снимать роль модератора может только владелец VibeCraft."); return
+        win=tk.Toplevel(self.root); win.title("Управление ролями VibeCraft"); win.geometry("380x260"); win.configure(bg=BG)
+        tk.Label(win,text="УПРАВЛЕНИЕ РОЛЯМИ",font=("Segoe UI",14,"bold"),fg=WHITE,bg=BG).pack(pady=14)
+        name=tk.Entry(win,width=34); name.pack(pady=8); name.insert(0,"Никнейм пользователя")
+        action=tk.StringVar(value="moderator")
+        ttk.Combobox(win,textvariable=action,state="readonly",values=("moderator","player"),width=28).pack(pady=8)
+        def apply():
+            try:
+                self.accounts.set_special_role(self.current_user['username'],name.get().strip(),None if action.get()=="player" else "moderator")
+                messagebox.showinfo("VibeCraft","Роль обновлена.",parent=win)
+            except AccountError as e: messagebox.showerror("Ошибка",str(e),parent=win)
+        tk.Button(win,text="Применить",command=apply,bg=PURPLE,fg=WHITE,relief="flat",padx=20,pady=8).pack(pady=10)
+        tk.Label(win,text="Владелец не может быть назначен через эту форму. Администратор отсутствует.",fg=MUTED,bg=BG,wraplength=330).pack(pady=5)
 
     def auth_notice(self):
-        messagebox.showinfo("Microsoft", "Для входа нужна регистрация публичного приложения OAuth и поддержка цепочки Microsoft → Xbox Live → Minecraft Services. "
-            "Не вводи пароль Microsoft в это окно и не отправляй его разработчику. Эта часть ещё не подключена.")
+        messagebox.showinfo("Microsoft", "Microsoft OAuth пока не реализован. Не вводи пароль Microsoft в лаунчер. Сейчас доступен только локальный офлайн-профиль; он не даёт доступа к online-mode=true серверам и не подтверждает владение Minecraft Java Edition.")
 
     def open_music(self):
         if self.music_window and self.music_window.winfo_exists():
