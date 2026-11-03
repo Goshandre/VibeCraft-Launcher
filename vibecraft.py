@@ -5,12 +5,13 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image
 
 APP_NAME = "VibeCraft Launcher"
-APP_VERSION = "1.6.1 Beta"
+APP_VERSION = "1.6.2 Beta"
 GITHUB_REPO = "Goshandre/VibeCraft-Launcher"
 MC_DIR = Path.home() / "VibeCraft" / ".minecraft"
 CONFIG = Path.home() / "VibeCraft" / "config.json"
 
 from vibecraft_accounts import AccountStore, AccountError
+from vibecraft_cosmetics import import_texture, can_use_custom_cape, CosmeticError
 
 try:
     import minecraft_launcher_lib as mcl
@@ -47,7 +48,7 @@ class VibeCraft:
         try:
             return json.loads(CONFIG.read_text(encoding="utf-8"))
         except Exception:
-            return {"skin_path": "", "ram_gb": 4}
+            return {"skin_path": "", "cape_path": "", "elytra_path": "", "ram_gb": 4}
 
     def save_config(self):
         CONFIG.parent.mkdir(parents=True, exist_ok=True)
@@ -111,7 +112,11 @@ class VibeCraft:
         self.skin_label.pack(anchor="w", padx=20, pady=(5, 10))
         tk.Button(right, text="Выбрать PNG", command=self.choose_skin, bg="#30335c",
                   fg=WHITE, relief="flat", pady=8).pack(fill="x", padx=20)
-        tk.Label(right, text="PNG сохраняется локально. Для отображения скина в игре нужен совместимый skin-мод и поддержка сервера.",
+        tk.Button(right, text="Выбрать плащ VibeCraft", command=self.choose_cape, bg="#493078", fg=WHITE, relief="flat", pady=8).pack(fill="x", padx=20, pady=(6, 0))
+        tk.Button(right, text="Выбрать элитры VibeCraft", command=self.choose_elytra, bg="#493078", fg=WHITE, relief="flat", pady=8).pack(fill="x", padx=20, pady=(6, 0))
+        self.cosmetic_status = tk.Label(right, text="Косметика сохраняется локально", font=("Segoe UI", 8), fg="#d4c4ff", bg="#17182f", justify="left", wraplength=205)
+        self.cosmetic_status.pack(anchor="w", padx=20, pady=(8, 0))
+        tk.Label(right, text="Локальный PNG сам по себе не меняет текстуру в игре. Нужен клиентский мод; для других игроков — ещё и серверная синхронизация.",
                  font=("Segoe UI", 9), fg=MUTED, bg="#17182f", justify="left").pack(
             anchor="w", padx=20, pady=(10, 22))
         tk.Label(right, text="АККАУНТ", font=("Segoe UI", 12, "bold"), fg=WHITE,
@@ -189,20 +194,24 @@ class VibeCraft:
                 self.root.after(0, lambda: messagebox.showerror("Ошибка установки", str(e)))
         threading.Thread(target=worker, daemon=True).start()
 
-    def choose_skin(self):
-        path = filedialog.askopenfilename(title="Выбери скин PNG", filetypes=[("PNG images", "*.png")])
-        if path:
-            self.config["skin_path"] = path
-            self.save_config()
-            try:
-                im=Image.open(path)
-                if im.format != "PNG" or im.size not in ((64,64),(64,32)): raise ValueError("Нужен PNG размером 64×64 или 64×32.")
-            except Exception as e:
-                self.config["skin_path"]=""; self.save_config(); messagebox.showerror("Неверный скин",str(e)); return
-            self.skin_label.config(text=Path(path).name)
-            skins=MC_DIR / "vibecraft_skins"; skins.mkdir(parents=True,exist_ok=True)
-            import shutil; shutil.copy2(path, skins / Path(path).name)
-            self.status.set("PNG проверен и скопирован в .minecraft/vibecraft_skins. Для применения нужен skin-мод.")
+    def _choose_texture(self, kind, title):
+        path = filedialog.askopenfilename(title=title, filetypes=[("PNG images", "*.png")])
+        if not path: return
+        try:
+            if kind == "cape" and not can_use_custom_cape(self.current_user):
+                raise CosmeticError("Свой плащ открывается с ранга Профи (25 часов). До этого действует стартовый плащ VibeCraft.")
+            stored = import_texture(path, MC_DIR, kind)
+            key = {"skin":"skin_path", "cape":"cape_path", "elytra":"elytra_path"}[kind]
+            self.config[key] = str(stored); self.save_config()
+            label = {"skin":"Скин", "cape":"Плащ", "elytra":"Элитры"}[kind]
+            self.cosmetic_status.config(text=f"{label} сохранены: {stored.name}\nНужен совместимый игровой мод.")
+            self.status.set(f"{label} PNG проверен и сохранён.")
+            messagebox.showinfo("VibeCraft", f"{label} сохранены.\n\nЭто пока подготовленный PNG. Для отображения в одиночной игре нужен клиентский мод, а для отображения другим игрокам — серверная синхронизация.")
+        except (CosmeticError, OSError) as exc: messagebox.showerror("Не удалось выбрать косметику", str(exc))
+
+    def choose_skin(self): self._choose_texture("skin", "Выбери скин Minecraft PNG")
+    def choose_cape(self): self._choose_texture("cape", "Выбери плащ Minecraft PNG 64×32")
+    def choose_elytra(self): self._choose_texture("elytra", "Выбери текстуру элитр PNG 64×32")
 
     def account_dialog(self):
         win = tk.Toplevel(self.root); win.title("Аккаунт VibeCraft"); win.geometry("360x330"); win.configure(bg=BG); win.resizable(False, False)
