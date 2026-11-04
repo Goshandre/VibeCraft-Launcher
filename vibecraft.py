@@ -5,7 +5,7 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image
 
 APP_NAME = "VibeCraft Launcher"
-APP_VERSION = "2.2 Free Cosmetics Beta"
+APP_VERSION = "2.5"
 GITHUB_REPO = "Goshandre/VibeCraft-Launcher"
 MC_DIR = Path.home() / "VibeCraft" / ".minecraft"
 CONFIG = Path.home() / "VibeCraft" / "config.json"
@@ -29,9 +29,10 @@ class VibeCraft:
     def __init__(self, root):
         self.root = root
         self.root.title(f"{APP_NAME}  •  v{APP_VERSION}")
-        self.root.geometry("880x600")
-        self.root.minsize(760, 520)
-        self.root.configure(bg=BG)
+        self.root.geometry("980x700")
+        self.root.minsize(820, 620)
+        self.root.configure(bg="#0b0d1b")
+        self.root.option_add("*Font", ("Segoe UI", 10))
         self.config = self.load_config()
         self.accounts = AccountStore()
         self.current_user = None
@@ -64,29 +65,31 @@ class VibeCraft:
 
     def build_ui(self):
         top = tk.Frame(self.root, bg=BG)
-        top.pack(fill="x", padx=24, pady=(22, 12))
+        top.pack(fill="x", padx=28, pady=(24, 14))
         tk.Label(top, text="Vibe", font=("Segoe UI", 28, "bold"), fg=WHITE, bg=BG).pack(side="left")
         tk.Label(top, text="CRAFT", font=("Segoe UI", 28, "bold"), fg=BLUE, bg=BG).pack(side="left")
         tk.Label(top, text=f"LAUNCHER  v{APP_VERSION}", font=("Segoe UI", 10, "bold"),
                  fg=MUTED, bg=BG).pack(side="right", pady=14)
 
         body = tk.Frame(self.root, bg=PANEL, highlightbackground="#34365d", highlightthickness=1)
-        body.pack(fill="both", expand=True, padx=24, pady=8)
+        body.pack(fill="both", expand=True, padx=28, pady=10)
         left = tk.Frame(body, bg=PANEL)
-        left.pack(side="left", fill="both", expand=True, padx=24, pady=24)
-        right = tk.Frame(body, bg="#17182f", width=250)
+        left.pack(side="left", fill="both", expand=True, padx=28, pady=28)
+        right = tk.Frame(body, bg="#15172d", width=270, highlightbackground="#30345d", highlightthickness=1)
         right.pack(side="right", fill="y", padx=(0, 0))
         right.pack_propagate(False)
 
-        tk.Label(left, text="ТВОЯ ИГРА. ТВОЙ ВАЙБ.", font=("Segoe UI", 18, "bold"),
+        tk.Label(left, text="ТВОЯ ИГРА. ТВОЙ ВАЙБ.", font=("Segoe UI", 22, "bold"),
                  fg=WHITE, bg=PANEL).pack(anchor="w")
         tk.Label(left, text="Выбери версию Minecraft Java Edition", font=("Segoe UI", 10),
                  fg=MUTED, bg=PANEL).pack(anchor="w", pady=(6, 18))
 
+        tk.Label(left, text="ВЕРСИЯ И ЗАГРУЗЧИК", font=("Segoe UI", 9, "bold"),
+                 fg="#8fcaff", bg=PANEL).pack(anchor="w", pady=(4, 7))
         row = tk.Frame(left, bg=PANEL); row.pack(fill="x")
         self.version_var = tk.StringVar(value="Загрузка списка версий…")
         self.version_box = ttk.Combobox(row, textvariable=self.version_var, state="readonly", width=36)
-        self.version_box.pack(side="left", ipady=6)
+        self.version_box.pack(side="left", ipady=8, fill="x", expand=True)
         tk.Button(row, text="⟳", command=self.load_versions, bg=PURPLE, fg="white",
                   relief="flat", padx=14, pady=7).pack(side="left", padx=8)
 
@@ -94,14 +97,24 @@ class VibeCraft:
         tk.Label(left, textvariable=self.status, wraplength=460, justify="left",
                  font=("Segoe UI", 10), fg=MUTED, bg=PANEL).pack(anchor="w", pady=(20, 10))
 
-        self.progress = ttk.Progressbar(left, mode="determinate", maximum=100)
+        style = ttk.Style()
+        try:
+            style.theme_use("clam")
+            style.configure("Vibe.Horizontal.TProgressbar", troughcolor="#101126",
+                            background=PURPLE, bordercolor="#101126", lightcolor=PURPLE,
+                            darkcolor=PURPLE)
+        except tk.TclError:
+            pass
+        self.progress = ttk.Progressbar(left, mode="determinate", maximum=100,
+                                        style="Vibe.Horizontal.TProgressbar")
         self.progress.pack(fill="x", pady=(0, 16))
-        loader_row=tk.Frame(left,bg=PANEL); loader_row.pack(fill="x",pady=(2,4))
-        tk.Button(loader_row,text="Установить Fabric",command=lambda:self.install_loader("Fabric"),bg="#30335c",fg=WHITE,relief="flat",pady=7).pack(side="left",fill="x",expand=True,padx=(0,4))
-        tk.Button(loader_row,text="Установить Forge",command=lambda:self.install_loader("Forge"),bg="#30335c",fg=WHITE,relief="flat",pady=7).pack(side="left",fill="x",expand=True,padx=(4,0))
+        tk.Label(left, text="В списке версии отмечены как Vanilla, Forge или Fabric. Обнови список кнопкой ⟳.",
+                 font=("Segoe UI", 8), fg=MUTED, bg=PANEL).pack(anchor="w", pady=(2, 4))
         tk.Button(left, text="▶  ИГРАТЬ", command=self.launch_game,
-                  bg=PURPLE, fg="white", activebackground="#b38aff",
-                  font=("Segoe UI", 12, "bold"), relief="flat", pady=13).pack(fill="x", pady=4)
+                  bg="#8b5cf6", fg="white", activebackground="#a78bfa",
+                  activeforeground="white", cursor="hand2",
+                  font=("Segoe UI", 13, "bold"), relief="flat", pady=15,
+                  bd=0).pack(fill="x", pady=7)
         tk.Button(left, text="Папка игры", command=self.open_game_folder,
                   bg="#2b2d50", fg=WHITE, relief="flat", pady=8).pack(fill="x", pady=4)
         tk.Button(left, text="♫  МУЗЫКА VIBECRAFT", command=self.open_music,
@@ -118,10 +131,9 @@ class VibeCraft:
         tk.Button(right, text="Выбрать PNG", command=self.choose_skin, bg="#30335c",
                   fg=WHITE, relief="flat", pady=8).pack(fill="x", padx=20)
         tk.Button(right, text="Выбрать плащ VibeCraft", command=self.choose_cape, bg="#493078", fg=WHITE, relief="flat", pady=8).pack(fill="x", padx=20, pady=(6, 0))
-        tk.Button(right, text="✨ Эффекты и частицы", command=self.cosmetics_effects_dialog, bg="#30335c", fg=WHITE, relief="flat", pady=8).pack(fill="x", padx=20, pady=(6, 0))
         self.cosmetic_status = tk.Label(right, text="Косметика сохраняется локально", font=("Segoe UI", 8), fg="#d4c4ff", bg="#17182f", justify="left", wraplength=205)
         self.cosmetic_status.pack(anchor="w", padx=20, pady=(8, 0))
-        tk.Label(right, text="Скины и плащи бесплатны. PNG сохраняются локально; для показа в игре нужен совместимый мод.",
+        tk.Label(right, text="PNG пока сохраняются локально. Для отображения в Minecraft нужна интеграция с игровым модом.",
                  font=("Segoe UI", 9), fg=MUTED, bg="#17182f", justify="left").pack(
             anchor="w", padx=20, pady=(10, 22))
         tk.Label(right, text="АККАУНТ", font=("Segoe UI", 12, "bold"), fg=WHITE,
@@ -139,7 +151,7 @@ class VibeCraft:
             anchor="w", padx=20, pady=(8, 0))
 
         footer = tk.Frame(self.root, bg=BG)
-        footer.pack(fill="x", padx=24, pady=(4, 10))
+        footer.pack(fill="x", padx=28, pady=(5, 12))
         tk.Label(footer, text="Неофициальный проект • Minecraft принадлежит Mojang/Microsoft",
                  font=("Segoe UI", 8), fg="#77799c", bg=BG).pack(side="left")
         tk.Button(footer, text="ВЫХОД", command=self.exit_launcher,
@@ -153,23 +165,61 @@ class VibeCraft:
         if mcl is None:
             self.status.set("Не установлены зависимости. Запусти install_dependencies.bat.")
             return
-        self.status.set("Получаю список версий с официального манифеста Minecraft…")
+        self.status.set("Загружаю каталог Minecraft, Forge и Fabric…")
         def worker():
             try:
-                items = mcl.utils.get_version_list()
-                versions = [x["id"] for x in items]
-                latest = mcl.utils.get_latest_version().get("release")
+                from urllib.request import Request, urlopen
+                def get_json(url):
+                    req = Request(url, headers={"User-Agent": "VibeCraft-Launcher/2.4"})
+                    with urlopen(req, timeout=25) as response:
+                        return json.loads(response.read().decode("utf-8"))
+
+                # Mojang manifest is the source of truth for Java versions.
+                manifest = get_json("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
+                versions = [v["id"] for v in manifest.get("versions", [])
+                            if v.get("type") == "release" and v.get("id")]
+                latest = manifest.get("latest", {}).get("release")
+                fabric_games = set()
+                forge_games = set()
+                errors = []
+                try:
+                    fabric_data = get_json("https://meta.fabricmc.net/v2/versions/game")
+                    fabric_games = {v.get("version") for v in fabric_data
+                                    if v.get("version") and v.get("stable", True)}
+                except Exception as exc:
+                    errors.append("Fabric: " + str(exc))
+                try:
+                    promos = get_json("https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json").get("promos", {})
+                    for key in promos:
+                        if key.endswith(("-recommended", "-latest")):
+                            game_ver = key.rsplit("-", 1)[0]
+                            forge_games.add(game_ver)
+                except Exception as exc:
+                    errors.append("Forge: " + str(exc))
+
+                catalog = []
+                for ver in versions:
+                    catalog.append(f"{ver}  |  Vanilla")
+                    if ver in forge_games:
+                        catalog.append(f"{ver}  |  Forge")
+                    if ver in fabric_games:
+                        catalog.append(f"{ver}  |  Fabric")
+
                 def done():
                     self.versions = versions
-                    self.version_box["values"] = versions
-                    if latest in versions:
-                        self.version_var.set(latest)
-                    elif versions:
-                        self.version_var.set(versions[0])
-                    self.status.set(f"Загружено версий: {len(versions)}. Последний релиз: {latest or 'неизвестно'}.")
+                    self.version_box["values"] = catalog
+                    preferred = self.version_var.get().strip()
+                    if preferred not in catalog:
+                        preferred = f"{latest}  |  Vanilla" if latest else (catalog[0] if catalog else "")
+                    self.version_var.set(preferred)
+                    msg = f"Загружено: {len(versions)} версий Minecraft, {len(catalog)} вариантов с загрузчиками."
+                    if errors:
+                        msg += " Не удалось получить часть метаданных: " + " | ".join(errors)
+                    self.status.set(msg)
                 self.root.after(0, done)
-            except Exception as e:
-                self.set_status(f"Не удалось получить список версий: {e}")
+            except Exception as exc:
+                msg = str(exc)
+                self.root.after(0, lambda: self.status.set("Не удалось загрузить каталог: " + msg))
         threading.Thread(target=worker, daemon=True).start()
 
     def install_version(self):
@@ -211,6 +261,8 @@ class VibeCraft:
         path = filedialog.askopenfilename(title=title, filetypes=[("PNG images", "*.png")])
         if not path: return
         try:
+            if kind == "cape" and not can_use_custom_cape(self.current_user):
+                raise CosmeticError("Свой плащ открывается с ранга Профи (25 часов). До этого действует стартовый плащ VibeCraft.")
             stored = import_texture(path, MC_DIR, kind)
             key = {"skin":"skin_path", "cape":"cape_path", "elytra":"elytra_path"}[kind]
             self.config[key] = str(stored); self.save_config()
@@ -223,39 +275,6 @@ class VibeCraft:
     def choose_skin(self): self._choose_texture("skin", "Выбери скин Minecraft PNG")
     def choose_cape(self): self._choose_texture("cape", "Выбери плащ Minecraft PNG 64×32")
     def choose_elytra(self): self._choose_texture("elytra", "Выбери текстуру элитр PNG 64×32")
-
-    def cosmetics_effects_dialog(self):
-        """Save free cosmetic preferences; rendering requires a compatible game mod."""
-        win = tk.Toplevel(self.root)
-        win.title("VibeCraft — бесплатная косметика")
-        win.geometry("430x430")
-        win.configure(bg=BG)
-        win.resizable(False, False)
-        tk.Label(win, text="БЕСПЛАТНЫЕ ЭФФЕКТЫ", font=("Segoe UI", 15, "bold"), fg=WHITE, bg=BG).pack(pady=(18, 6))
-        tk.Label(win, text="Настройки сохраняются в профиле VibeCraft.\nДля отображения в игре потребуется совместимый мод.",
-                 font=("Segoe UI", 9), fg=MUTED, bg=BG, justify="center").pack(pady=(0, 14))
-        choices = [
-            ("aura_enabled", "Аура вокруг персонажа"),
-            ("footstep_particles", "Частицы при ходьбе"),
-            ("jump_particles", "Частицы при прыжке"),
-            ("join_effect", "Эффект появления"),
-            ("color_effect", "Цветные эффекты"),
-            ("extra_animations", "Дополнительные анимации"),
-        ]
-        vars_ = {}
-        for key, title in choices:
-            var = tk.BooleanVar(value=bool(self.config.get("cosmetics", {}).get(key, False)))
-            vars_[key] = var
-            tk.Checkbutton(win, text=title, variable=var, bg=BG, fg=WHITE, selectcolor=PANEL,
-                           activebackground=BG, activeforeground=WHITE, font=("Segoe UI", 10)).pack(anchor="w", padx=48, pady=5)
-        def save():
-            self.config.setdefault("cosmetics", {}).update({key: var.get() for key, var in vars_.items()})
-            self.save_config()
-            self.cosmetic_status.config(text="Скин/плащ и настройки эффектов сохранены локально.\nИгровой мод пока не подключён.")
-            self.status.set("Настройки бесплатной косметики сохранены.")
-            messagebox.showinfo("VibeCraft", "Настройки сохранены. В этой Beta они ещё не отображаются в Minecraft: для этого нужен отдельный совместимый клиентский мод.", parent=win)
-            win.destroy()
-        tk.Button(win, text="СОХРАНИТЬ", command=save, bg=PURPLE, fg=WHITE, relief="flat", pady=9).pack(fill="x", padx=38, pady=20)
 
     def account_dialog(self):
         win = tk.Toplevel(self.root); win.title("Аккаунт VibeCraft"); win.geometry("360x330"); win.configure(bg=BG); win.resizable(False, False)
@@ -323,9 +342,15 @@ class VibeCraft:
             messagebox.showerror("Нет зависимости", "Установи зависимости через install_dependencies.bat."); return
         if self.current_user is None:
             messagebox.showwarning("Нужен профиль", "Сначала войди или зарегистрируй локальный профиль VibeCraft."); self.account_dialog(); return
-        version=self.version_var.get().strip()
-        if not version or version.startswith("Загрузка"):
+        selected_entry=self.version_var.get().strip()
+        if not selected_entry or selected_entry.startswith("Загрузка"):
             messagebox.showwarning("Версия", "Сначала выбери версию Minecraft."); return
+        try:
+            version, selected_loader = [part.strip() for part in selected_entry.split("|", 1)]
+        except ValueError:
+            version, selected_loader = selected_entry, "Vanilla"
+        if selected_loader not in ("Vanilla", "Forge", "Fabric"):
+            messagebox.showerror("Версия", "Неизвестный вариант загрузчика."); return
         if self.game_process and self.game_process.poll() is None:
             messagebox.showinfo("Minecraft", "Игра уже запущена."); return
         user=self.current_user['username']
@@ -335,18 +360,54 @@ class VibeCraft:
         def worker():
             try:
                 MC_DIR.mkdir(parents=True,exist_ok=True)
-                if not mcl.utils.is_minecraft_version_installed(version, str(MC_DIR)):
+                launch_id = version
+                if selected_loader in ("Fabric", "Forge"):
+                    # minecraft-launcher-lib 8.x объединяет загрузчики в mod_loader.
+                    # Старые mcl.fabric / mcl.forge вызовы были устаревшими и
+                    # давали несовместимость форматов версий Forge.
+                    try:
+                        loader_api = mcl.mod_loader.get_mod_loader(selected_loader.lower())
+                    except Exception as exc:
+                        raise RuntimeError(
+                            f"Не удалось подключить загрузчик {selected_loader}. "
+                            f"Проверь minecraft-launcher-lib 8.x: {exc}"
+                        ) from exc
+
+                    self.set_status(f"Устанавливаю {selected_loader} для Minecraft {version}…")
+                    try:
+                        launch_id = loader_api.install(version, str(MC_DIR))
+                    except Exception as exc:
+                        raise RuntimeError(
+                            f"Установка {selected_loader} для Minecraft {version} не удалась. "
+                            f"Возможно, этот загрузчик не поддерживает выбранную версию. Подробности: {exc}"
+                        ) from exc
+
+                    if not launch_id:
+                        # Some library builds return None; resolve the installed profile.
+                        installed_versions = mcl.utils.get_installed_versions(str(MC_DIR))
+                        candidates = [
+                            item.get("id") for item in installed_versions
+                            if item.get("id") and version in item.get("id")
+                            and selected_loader.lower() in item.get("id", "").lower()
+                        ]
+                        if not candidates:
+                            raise RuntimeError(
+                                f"{selected_loader} установщик завершился, но профиль не найден."
+                            )
+                        launch_id = candidates[0]
+                installed_versions = mcl.utils.get_installed_versions(str(MC_DIR))
+                if selected_loader == "Vanilla" and not any(item.get("id") == version for item in installed_versions):
                     self.set_status(f"Скачиваю Minecraft {version}…")
                     mcl.install.install_minecraft_version(version, str(MC_DIR))
+                    installed_versions = mcl.utils.get_installed_versions(str(MC_DIR))
+                    if not any(item.get("id") == version for item in installed_versions):
+                        raise RuntimeError(f"Не удалось установить Minecraft {version}. Проверь подключение и журнал.")
                 options={"username":user,"uuid":uuid.uuid3(uuid.NAMESPACE_DNS,"OfflinePlayer:"+user).hex,"token":""}
-                command=mcl.command.get_minecraft_command(version,str(MC_DIR),options=options)
+                command=mcl.command.get_minecraft_command(launch_id,str(MC_DIR),options=options)
+                # Hide only the Java console. Do not pass SW_HIDE via STARTUPINFO:
+                # it can make the actual Minecraft GUI window start hidden on Windows.
                 flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
-                startup = None
-                if sys.platform == "win32":
-                    startup = subprocess.STARTUPINFO()
-                    startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                    startup.wShowWindow = 0
-                self.game_process=subprocess.Popen(command,cwd=str(MC_DIR),creationflags=flags,startupinfo=startup)
+                self.game_process=subprocess.Popen(command,cwd=str(MC_DIR),creationflags=flags)
                 self.root.after(0, self.root.iconify)
                 self.set_status("Minecraft запущен. Лаунчер свёрнут.")
                 started=time.monotonic()
@@ -363,24 +424,44 @@ class VibeCraft:
         threading.Thread(target=worker,daemon=True).start()
 
     def install_loader(self, loader):
-        if mcl is None: messagebox.showerror("Зависимость", "Установи зависимости."); return
-        version=self.version_var.get().strip()
+        # Kept for compatibility with older UI integrations.
+        version = self.version_var.get().strip()
+        if " | " in version:
+            version = version.split(" | ", 1)[0].strip()
+        self._install_selected_loader(version, loader)
+
+    def _install_selected_loader(self, version, loader):
+        if mcl is None:
+            messagebox.showerror("Зависимость", "Установи зависимости через install_dependencies.bat.")
+            return
         def worker():
             try:
-                if loader=="Fabric":
-                    if not hasattr(mcl,"fabric"): raise RuntimeError("Эта версия minecraft-launcher-lib не содержит Fabric API.")
-                    mcl.fabric.install_fabric(version,str(MC_DIR))
-                elif loader=="Forge":
-                    if not hasattr(mcl,"forge"): raise RuntimeError("Эта версия minecraft-launcher-lib не содержит Forge API.")
-                    mcl.forge.install_forge_version(version,str(MC_DIR))
+                if loader == "Fabric":
+                    if not hasattr(mcl, "fabric"):
+                        raise RuntimeError("Fabric API отсутствует в установленной minecraft-launcher-lib.")
+                    mcl.fabric.install_fabric(version, str(MC_DIR))
+                elif loader == "Forge":
+                    if not hasattr(mcl, "forge"):
+                        raise RuntimeError("Forge API отсутствует в установленной minecraft-launcher-lib.")
+                    get_versions = getattr(mcl.forge, "list_forge_versions", None) or getattr(mcl.forge, "get_forge_versions", None)
+                    if get_versions is None:
+                        raise RuntimeError("В minecraft-launcher-lib нет функции получения версий Forge.")
+                    forge_versions = get_versions(version)
+                    if not forge_versions:
+                        raise RuntimeError(f"Для Minecraft {version} Forge-сборки не найдены.")
+                    selected = forge_versions[0]
+                    forge_id = (selected.get("id") or selected.get("version")) if isinstance(selected, dict) else str(selected)
+                    mcl.forge.install_forge_version(forge_id, str(MC_DIR))
                 self.set_status(f"{loader} для Minecraft {version} установлен.")
-                self.root.after(0,lambda:messagebox.showinfo("Готово",f"{loader} установлен. Выбери созданный профиль загрузчика в списке версий."))
+                self.root.after(0, lambda: messagebox.showinfo(
+                    "Готово", f"{loader} для Minecraft {version} установлен. Обнови список версий."
+                ))
             except Exception as e:
-                self.set_status(f"Ошибка установки {loader}: {e}")
                 error_text = str(e)
-                self.root.after(0,lambda msg=error_text:messagebox.showerror(f"Установка {loader}",msg))
-        self.status.set(f"Устанавливаю {loader}…")
-        threading.Thread(target=worker,daemon=True).start()
+                self.set_status(f"Ошибка установки {loader}: {error_text}")
+                self.root.after(0, lambda msg=error_text: messagebox.showerror(f"Установка {loader}", msg))
+        self.status.set(f"Устанавливаю {loader} для Minecraft {version}…")
+        threading.Thread(target=worker, daemon=True).start()
 
     def moderation_dialog(self):
         if not self.current_user:
@@ -512,25 +593,79 @@ class VibeCraft:
             messagebox.showerror("Ошибка воспроизведения", str(e))
 
     def check_updates(self):
-        if "YOUR_GITHUB_NAME" in GITHUB_REPO:
-            return
+        """Check GitHub Releases in the background. If a ZIP asset exists, offer to download and install it."""
         def worker():
             try:
                 url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-                req = urllib.request.Request(url, headers={"User-Agent": "VibeCraft-Launcher"})
-                with urllib.request.urlopen(req, timeout=5) as response:
+                req = urllib.request.Request(url, headers={"User-Agent": "VibeCraft-Launcher", "Accept": "application/vnd.github+json"})
+                with urllib.request.urlopen(req, timeout=8) as response:
                     release = json.loads(response.read().decode("utf-8"))
-                latest = release.get("tag_name", "").lstrip("v")
-                if latest and latest != APP_VERSION:
-                    self.root.after(0, lambda: self.offer_update(release))
+                latest = str(release.get("tag_name", "")).strip().lstrip("vV")
+                current = APP_VERSION.strip().lstrip("vV")
+                if not latest or latest.lower() == current.lower():
+                    return
+                # Avoid showing an update prompt for older releases; compare numeric version parts when possible.
+                def parts(value):
+                    match = re.match(r"^(\d+(?:\.\d+)*)(?:[-+].*)?$", value)
+                    return tuple(int(x) for x in match.group(1).split(".")) if match else None
+                lp, cp = parts(latest), parts(current)
+                if lp is not None and cp is not None:
+                    size=max(len(lp),len(cp)); lp=lp+(0,)*(size-len(lp)); cp=cp+(0,)*(size-len(cp))
+                    if lp <= cp:
+                        return
+                self.root.after(0, lambda r=release: self.offer_update(r))
             except Exception:
-                pass
+                # No internet, no releases, or private repo: don't prevent the launcher from starting.
+                return
         threading.Thread(target=worker, daemon=True).start()
 
     def offer_update(self, release):
-        if messagebox.askyesno("Доступно обновление",
-                f"Найдена версия {release.get('tag_name')}.\nОткрыть страницу загрузки?"):
-            webbrowser.open(release.get("html_url", "https://github.com"))
+        tag = str(release.get("tag_name", "новая версия"))
+        assets = release.get("assets", []) or []
+        zip_assets = [a for a in assets if str(a.get("name", "")).lower().endswith(".zip") and a.get("browser_download_url")]
+        notes = str(release.get("body", "") or "")[:700]
+        if zip_assets:
+            prompt = f"Доступно обновление VibeCraft {tag}.\n\n{notes}\n\nСкачать и установить обновление сейчас?\nАккаунты и настройки в пользовательской папке сохранятся."
+            if messagebox.askyesno("Обновление VibeCraft", prompt):
+                threading.Thread(target=self._download_and_install_update, args=(zip_assets[0], tag), daemon=True).start()
+        else:
+            prompt = f"Доступна версия {tag}, но в GitHub Release нет ZIP-файла для автоматической установки.\n\nОткрыть страницу релиза?"
+            if messagebox.askyesno("Обновление VibeCraft", prompt):
+                webbrowser.open(release.get("html_url", f"https://github.com/{GITHUB_REPO}/releases"))
+
+    def _download_and_install_update(self, asset, tag):
+        try:
+            self.root.after(0, lambda: self.status.set(f"Скачивание обновления {tag}…"))
+            updates_dir = Path.home() / "VibeCraft" / "updates"
+            updates_dir.mkdir(parents=True, exist_ok=True)
+            archive = updates_dir / f"VibeCraft-{re.sub(r'[^A-Za-z0-9._-]', '_', tag)}.zip"
+            req = urllib.request.Request(asset["browser_download_url"], headers={"User-Agent": "VibeCraft-Launcher"})
+            with urllib.request.urlopen(req, timeout=30) as response, open(archive, "wb") as target:
+                while True:
+                    chunk = response.read(1024 * 256)
+                    if not chunk:
+                        break
+                    target.write(chunk)
+            # Validate archive before offering it to the updater.
+            import zipfile
+            with zipfile.ZipFile(archive, "r") as zf:
+                bad = zf.testzip()
+                if bad:
+                    raise ValueError(f"Повреждён ZIP-архив: {bad}")
+                if not any(Path(n).name.lower() == "vibecraft.py" for n in zf.namelist()):
+                    raise ValueError("В архиве обновления не найден vibecraft.py. Проверь ZIP в GitHub Releases.")
+            helper = Path(__file__).with_name("vibecraft_updater.py")
+            if not helper.exists():
+                raise FileNotFoundError("Не найден файл vibecraft_updater.py")
+            message = f"Обновление {tag} скачано. Лаунчер закроется, обновится и запустится снова."
+            self.root.after(0, lambda m=message: messagebox.showinfo("VibeCraft", m))
+            subprocess.Popen([sys.executable, str(helper), str(archive), str(Path(__file__).resolve().parent), str(os.getpid())],
+                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), close_fds=True)
+            self.root.after(100, self.root.destroy)
+        except Exception as exc:
+            details = str(exc)
+            self.root.after(0, lambda d=details: messagebox.showerror("Не удалось обновить VibeCraft", d))
+            self.root.after(0, lambda: self.status.set("Не удалось установить обновление."))
 
 def _show_fatal_error(exc_type, exc_value, exc_tb):
     import traceback
